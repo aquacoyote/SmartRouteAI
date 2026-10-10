@@ -1,0 +1,18 @@
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local semantic cache and generated data
+cache.json
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db
