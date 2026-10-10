@@ -1,38 +1,8 @@
-# SmartRouteAI 🚀
-
-A local LLM semantic caching prototype that reuses answers to similar questions to reduce response latency and unnecessary model inference.
-
-## 💡 The Problem
-
-Large language model (LLM) applications can repeatedly process questions that mean almost the same thing. Even when two questions are semantically similar, a basic exact-match cache may treat them as completely different requests.
-
-SmartRouteAI explores **semantic caching**: using sentence embeddings to identify similar questions and reuse a previous answer when the similarity is high enough.
-
-## ⚙️ How It Works
-
-1. **Embed the question:** Convert the incoming question into a numerical vector using `all-MiniLM-L6-v2`.
-2. **Search the cache:** Compare the new embedding with previously stored question embeddings using cosine similarity.
-3. **Check the threshold:** If the closest match meets the similarity threshold (`0.80`), return its cached answer.
-4. **Generate when needed:** Otherwise, send the question to a local LLM through Ollama.
-5. **Save the result:** Store the question, answer, and embedding in `cache.json` for future requests.
-
-## 🧰 Tech Stack
-
-- Python
-- Sentence Transformers
-- PyTorch
-- Ollama
-- Llama 3.2 3B
-- JSON-based persistent storage
-- Git and GitHub
-
 ## 🖥️ Getting Started
 
 ### Prerequisites
 
-Install:
-
-- Python
+- Python 3.10 or newer
 - [Ollama](https://ollama.com/)
 - Git
 
@@ -53,53 +23,65 @@ git clone https://github.com/aquacoyote/SmartRouteAI.git
 cd SmartRouteAI
 ```
 
-Install Python dependencies:
+Create and activate a virtual environment.
 
-```bash
-pip install -r requirements.txt
+**Windows PowerShell:**
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-Run the semantic cache prototype:
+Install the dependencies:
 
-```bash
+```powershell
+python -m pip install -r requirements.txt
+```
+
+Run the interactive semantic cache:
+
+```powershell
 python semantic_cache.py
 ```
 
 Run the embedding demonstration:
 
-```bash
+```powershell
 python embeddings_demo.py
 ```
 
-## 📊 Current Features
+Run the benchmark:
 
-- Sentence embedding generation
-- Cosine-similarity-based cache lookup
-- Configurable semantic similarity threshold
-- Persistent cache storage across runs
-- Local LLM inference through Ollama
-- Basic cache-hit and latency metrics
+```powershell
+python benchmark.py
+```
 
-## ⚠️ Limitations
+**Note:** The benchmark temporarily clears the cache for its experiment and restores the previous cache afterward.
 
-- Similarity does not guarantee that two questions need the same answer.
-- The threshold has not yet been rigorously evaluated.
-- Performance measurements need systematic benchmarking across varied questions.
-- The current prototype uses a simple JSON cache rather than a vector database.
-- Local inference speed depends on the hardware and model configuration.
+## 📈 Initial Benchmark
+
+A preliminary experiment was run locally using five requests: an exact repeat, a paraphrase, an unrelated question, and a semantically related but distinct question.
+
+| Metric | Result |
+|---|---:|
+| Requests tested | 5 |
+| Cache hits | 2 |
+| Cache misses | 3 |
+| Observed cache hit rate | 40% |
+| Average end-to-end request latency | 5.060 s |
+| Average LLM-backed request latency | 8.425 s |
+| Average cache-hit latency | 0.014 s |
+| Average LLM generation time, when called | 8.397 s |
+
+The cache reused the answer for an exact repeat and a paraphrase. It rejected an unrelated question and a related question that required a different answer.
+
+**Limitations:** These results come from a single five-request run. They are preliminary and do not establish general performance or answer correctness. Further testing should use larger question sets, repeated trials, controlled uncached baselines, and explicit cache-answer correctness checks.
 
 ## 🛣️ Roadmap
 
-- [ ] Benchmark cache hits versus model-generated responses.
+- [ ] Expand the benchmark with a larger, repeatable question set.
+- [ ] Compare cached requests against controlled uncached baselines.
 - [ ] Evaluate different similarity thresholds.
 - [ ] Test semantic matches for correctness, not just similarity.
 - [ ] Improve metrics and experiment reporting.
 - [ ] Explore cost-aware routing across models of different sizes.
-
-## 🎯 Project Goal
-
-Build and evaluate a practical, locally runnable semantic caching system, measuring when it improves latency and identifying when reusing a cached answer is unsafe or inaccurate.
-
----
-
-**Status:** Experimental learning project in active development.

@@ -1,27 +1,28 @@
 
 import time
-import requests
 import json
-import torch 
+import requests
+import torch
 
-from pathlib import Path 
+from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 
-CACHE_FILE = Path(__file__).parent / "cache.json"
 
 # Configuration
+CACHE_FILE = Path(__file__).parent / "cache.json"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 LLM_MODEL = "llama3.2:3b"
 THRESHOLD = 0.80
+
 
 print("Loading embedding model...")
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 print("Embedding model ready!")
 
-# Cache entries contain question, embedding, and answer
 
 def load_cache():
+    """Load previously saved questions and embeddings."""
     if not CACHE_FILE.exists():
         return []
 
@@ -33,12 +34,14 @@ def load_cache():
 
         for entry in entries:
             entry["embedding"] = torch.tensor(
-                entry["embedding"], dtype=torch.float32
+                entry["embedding"],
+                dtype=torch.float32,
             )
+
         print(f"Loaded {len(entries)} cached entries from disk.")
         return entries
 
-    except (json.JSONDecodeError, OSError,KeyError,TypeError) as error:
+    except (json.JSONDecodeError, OSError, KeyError, TypeError) as error:
         print(f"Could not load cache: {error}")
         print("Starting with an empty cache.")
         return []
@@ -46,19 +49,23 @@ def load_cache():
 
 cache = load_cache()
 
+
 def save_cache():
-    data ={"entries": []}
+    """Save the current cache to JSON."""
+    data = {"entries": []}
 
     for entry in cache:
         data["entries"].append({
             "question": entry["question"],
-            "answer": entry ["answer"],
-            "embedding": entry["embedding"].tolist()
+            "answer": entry["answer"],
+            "embedding": entry["embedding"].tolist(),
         })
-    with open(CACHE_FILE,"w",encoding="utf-8") as file:
-        json.dump(data,file,indent=2)
 
-# Metrics for our experiment
+    with open(CACHE_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=2)
+
+
+# Request and performance statistics
 stats = {
     "requests": 0,
     "cache_hits": 0,
@@ -69,7 +76,7 @@ stats = {
 
 
 def generate_answer(question):
-    """Generate a real answer using our local LLM."""
+    """Generate an answer using the local Ollama model."""
     payload = {
         "model": LLM_MODEL,
         "prompt": (
@@ -103,15 +110,15 @@ def generate_answer(question):
 
 
 def answer_question(question):
+    """Return a cached answer or generate a new one."""
     stats["requests"] += 1
 
-    # Convert the new question into an embedding
     embedding = embedding_model.encode(question)
 
     best_score = -1.0
     best_match = None
 
-    # Find the most similar cached question
+    # Find the closest existing question.
     for entry in cache:
         similarity = cos_sim(
             embedding,
@@ -122,7 +129,7 @@ def answer_question(question):
             best_score = similarity
             best_match = entry
 
-    # Reuse the answer if similarity is high enough
+    # Reuse the answer when the similarity threshold is met.
     if best_match is not None and best_score >= THRESHOLD:
         stats["cache_hits"] += 1
 
@@ -131,7 +138,7 @@ def answer_question(question):
 
         return best_match["answer"]
 
-    # No sufficiently similar cached question: call the LLM
+    # Otherwise, call the local LLM.
     stats["cache_misses"] += 1
 
     print(f"\n[CACHE MISS] Best similarity: {best_score:.3f}")
@@ -139,7 +146,6 @@ def answer_question(question):
 
     answer, elapsed = generate_answer(question)
 
-    # Save the question, embedding, and real AI-generated answer
     cache.append({
         "question": question,
         "embedding": embedding,
@@ -154,6 +160,7 @@ def answer_question(question):
 
 
 def show_stats():
+    """Display session statistics."""
     requests_count = stats["requests"]
     hits = stats["cache_hits"]
     calls = stats["llm_calls"]
@@ -185,41 +192,44 @@ def show_stats():
     print("==========================================")
 
 
-while True:
-    try:
-        question = input(
-            "\nAsk a question (stats / exit): "
-        ).strip()
+# Run the interactive interface only when this file is
+# launched directly, not when another Python file imports it.
+if __name__ == "__main__":
+    while True:
+        try:
+            question = input(
+                "\nAsk a question (stats / exit): "
+            ).strip()
 
-        if question.lower() == "exit":
+            if question.lower() in ["exit", "quit"]:
+                show_stats()
+                print("Side quest paused. Keep building!")
+                break
+
+            if question.lower() == "stats":
+                show_stats()
+                continue
+
+            if not question:
+                continue
+
+            start = time.perf_counter()
+            answer = answer_question(question)
+            total_time = time.perf_counter() - start
+
+            print(f"\nAnswer:\n{answer}")
+            print(f"\n[TOTAL REQUEST TIME] {total_time:.2f}s")
+
+        except requests.exceptions.ConnectionError:
+            print(
+                "Could not connect to Ollama. "
+                "Make sure Ollama is installed and running."
+            )
+
+        except requests.exceptions.RequestException as error:
+            print(f"LLM request failed: {error}")
+
+        except KeyboardInterrupt:
+            print("\nStopping SmartRoute AI...")
             show_stats()
-            print("Side quest paused. Keep building!")
             break
-
-        if question.lower() == "stats":
-            show_stats()
-            continue
-
-        if not question:
-            continue
-
-        start = time.perf_counter()
-        answer = answer_question(question)
-        total_time = time.perf_counter() - start
-
-        print(f"\nAnswer:\n{answer}")
-        print(f"\n[TOTAL REQUEST TIME] {total_time:.2f}s")
-
-    except requests.exceptions.ConnectionError:
-        print(
-            "Could not connect to Ollama. "
-            "Make sure Ollama is installed and running."
-        )
-
-    except requests.exceptions.RequestException as error:
-        print(f"LLM request failed: {error}")
-
-    except KeyboardInterrupt:
-        print("\nStopping SmartRoute AI...")
-        show_stats()
-        break
