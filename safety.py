@@ -71,26 +71,61 @@ def question_intent(text):
     return "other"
 
 
-def comparison_direction_mismatch(question_a, question_b):
-    """Detect opposite comparison words or reversed entity order."""
-    pattern = re.compile(
-        r"\bis\s+(.+?)\s+"
-        r"(faster|slower|better|worse|larger|smaller)"
-        r"\s+than\s+(.+?)[?.!]*$",
-        re.IGNORECASE,
-    )
 
-    match_a = pattern.search(normalize(question_a))
-    match_b = pattern.search(normalize(question_b))
+def comparison_direction_mismatch(question_a, question_b):
+    """Detect opposite comparison relations or reversed entity order."""
+    text_a = normalize(question_a)
+    text_b = normalize(question_b)
+
+    # Convert different comparison phrases into a common relation.
+    relation_patterns = [
+        (r"\b(?:more efficient|more effective)\b", "better"),
+        (r"\b(?:less efficient|less effective)\b", "worse"),
+        (r"\boutperform(?:s|ed|ing)?\b", "better"),
+        (r"\bunderperform(?:s|ed|ing)?\b", "worse"),
+        (r"\bfaster\b", "faster"),
+        (r"\bslower\b", "slower"),
+        (r"\bbetter\b", "better"),
+        (r"\bworse\b", "worse"),
+        (r"\blarger\b", "larger"),
+        (r"\bsmaller\b", "smaller"),
+    ]
+
+    def extract_comparison(text):
+        for pattern, relation in relation_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if not match:
+                continue
+
+            left = text[:match.start()].strip()
+            right = text[match.end():].strip()
+
+            # Remove common comparison-question wording.
+            left = re.sub(
+                r"^(?:is|are|does|do|which)\s+", "", left
+            )
+            left = re.sub(
+                r"\b(?:more|less)\s*$", "", left
+            )
+            right = re.sub(r"^[\s?.,!]+|[\s?.,!]+$", "", right)
+
+            # Normalize common auxiliary wording.
+            left = re.sub(r"\b(?:than|as)\s*$", "", left)
+            right = re.sub(r"^(?:than|as)\s+", "", right)
+
+            if left and right:
+                return left, relation, right
+
+        return None
+
+    match_a = extract_comparison(text_a)
+    match_b = extract_comparison(text_b)
 
     if not match_a or not match_b:
         return False
 
-    left_a, relation_a, right_a = match_a.groups()
-    left_b, relation_b, right_b = match_b.groups()
-
-    left_a, right_a = left_a.strip(), right_a.strip()
-    left_b, right_b = left_b.strip(), right_b.strip()
+    left_a, relation_a, right_a = match_a
+    left_b, relation_b, right_b = match_b
 
     opposite_relations = {
         ("faster", "slower"),
@@ -102,20 +137,16 @@ def comparison_direction_mismatch(question_a, question_b):
     }
 
     same_entities = left_a == left_b and right_a == right_b
+    reversed_entities = left_a == right_b and right_a == left_b
 
-    reversed_entities = (
-        left_a == right_b and right_a == left_b
-    )
-
-    opposite_meaning = (relation_a, relation_b) in opposite_relations
-
-    if same_entities and opposite_meaning:
+    if same_entities and (relation_a, relation_b) in opposite_relations:
         return True
 
     if reversed_entities and relation_a == relation_b:
         return True
 
     return False
+
 
 
 ALGORITHMS = {

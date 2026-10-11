@@ -51,6 +51,26 @@ TEST_CASES = [
      "How do I reverse a list in Python?", False),
     ("Tricky", "What is the time complexity of binary search?",
      "What is the space complexity of binary search?", False),
+
+    # 7. Adversarial cases: test wording variations
+    ("Adversarial comparison", "Does Python outperform C?",
+     "Does C outperform Python?", False),
+
+    ("Adversarial comparison", "Is merge sort more efficient than quick sort?",
+     "Is quick sort more efficient than merge sort?", False),
+
+    ("Adversarial algorithm", "What is the time complexity of binary search?",
+     "What is the time complexity of linear search?", False),
+
+    ("Adversarial complexity", "How much memory does binary search use?",
+     "How long does binary search take?", False),
+
+    ("Adversarial intent", "What is Python?",
+     "What can Python be used to accomplish?", False),
+
+    ("Safe paraphrase", "What is Python used for?",
+     "Explain the purpose of Python.", True),
+
 ]
 
 
