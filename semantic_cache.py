@@ -7,7 +7,7 @@ import torch
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
-
+from safety_eval import safety_check
 
 # Configuration
 CACHE_FILE = Path(__file__).parent / "cache.json"
@@ -129,14 +129,28 @@ def answer_question(question):
             best_score = similarity
             best_match = entry
 
-    # Reuse the answer when the similarity threshold is met.
+   
+    # Reuse an answer only if similarity and safety checks pass.
     if best_match is not None and best_score >= THRESHOLD:
-        stats["cache_hits"] += 1
+        safe, reason = safety_check(
+            best_match["question"],
+            question,
+        )
 
-        print(f"\n[CACHE HIT] Similarity: {best_score:.3f}")
+        if safe:
+            stats["cache_hits"] += 1
+
+            print(f"\n[CACHE HIT] Similarity: {best_score:.3f}")
+            print(f"[MATCH] {best_match['question']}")
+            print(f"[SAFETY] {reason}")
+
+            return best_match["answer"]
+
+        print(f"\n[SAFETY BLOCK] Similarity: {best_score:.3f}")
         print(f"[MATCH] {best_match['question']}")
+        print(f"[REASON] {reason}")
+        print("[CACHE] Unsafe match rejected; generating a fresh answer.")
 
-        return best_match["answer"]
 
     # Otherwise, call the local LLM.
     stats["cache_misses"] += 1
