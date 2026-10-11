@@ -7,7 +7,7 @@ import torch
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
-from safety_eval import safety_check
+from safety import safety_check
 
 # Configuration
 CACHE_FILE = Path(__file__).parent / "cache.json"
